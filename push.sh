@@ -3,7 +3,6 @@
 if [[ `source get-redacted-count.sh` != 0 ]]; then
     if [ ! -f ".passwords" ]; then
         echo "passwords redacted and nothing to restore them from"
-        sleep 3
         exit 1
     else
         source $(pwd)/restore-passwords.sh
@@ -15,6 +14,8 @@ for i in `ls etc`; do
 done
 
 scp -r etc/* root@192.168.1.1:/etc/
+
+source $(pwd)/redact-passwords.sh
 
 ###########################################################################################
 
