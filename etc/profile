@@ -24,8 +24,8 @@ esac
 [ -x /usr/bin/vim ] && alias vi=vim || alias vim=vi
 
 alias ll='ls -alF --color=never'
-alias ucirevert='uci revert dhcp && uci revert firewall && uci revert network && uci revert wireless'
-alias restartservices='wifi reload && /etc/init.d/network restart && /etc/init.d/firewall restart && /etc/init.d/dnsmasq restart'
+alias ucirevert='uci revert dhcp && uci revert firewall && uci revert network && uci revert wireless && uci revert openvpn'
+alias restartservices='wifi reload && /etc/init.d/network restart && /etc/init.d/firewall restart && /etc/init.d/dnsmasq restart && /etc/init.d/openvpn restart'
 
 [ -z "$KSH_VERSION" -o \! -s /etc/mkshrc ] || . /etc/mkshrc
 
