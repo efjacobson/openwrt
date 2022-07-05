@@ -2,12 +2,13 @@
 # opkg update; cd /tmp/ && opkg download dnsmasq-full; opkg install ipset libnettle8 libnetfilter-conntrack3; opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
 # from https://docs.openwrt.melmac.net/vpn-policy-routing/#how-to-install-dnsmasq-full
 
-echo "begin /etc/rc.local"
+echo "begin /etc/rc.local.actual"
 echo ""
 
 DRY_RUN=0
 BUILD_DEV=0
 BUILD_GUEST=0
+
 IP_THIRD_OCTET=1
 
 for opt in "$@"
@@ -134,7 +135,7 @@ end() {
     echo ""
   fi
 
-  echo "end /etc/rc.local"
+  echo "end /etc/rc.local.actual"
   echo ""
 }
 
@@ -237,6 +238,14 @@ uci set network.@switch[-1].enable_vlan='1'
 uci set network.@switch[-1].reset='1'
 EOI`
 log_execute "$cmd"
+
+# CPU (eth0) 0
+# LAN 1      1
+# LAN 2      2
+# LAN 3      4
+# LAN 4      4
+# WAN        5
+# CPU (eth1) 6
 
 cmd=`cat <<EOI
 uci add network switch_vlan > /dev/null
@@ -790,5 +799,3 @@ echo ""
 ###########################################################################################
 
 end
-
-exit 0

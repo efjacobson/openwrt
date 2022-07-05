@@ -10,7 +10,4 @@ if [[ `source get-redacted-count.sh` != 0 ]]; then
     fi
 fi
 
-cp etc/rc.local.sh etc/rc.local
-scp etc/profile etc/rc.local root@192.168.1.1:/etc/
-ssh root@192.168.1.1 chmod 644 /etc/profile
-rm etc/rc.local
+scp -r etc/* root@192.168.1.1:/etc/
