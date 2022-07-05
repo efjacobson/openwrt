@@ -258,6 +258,7 @@ log_execute "$cmd"
 
 cmd=`cat <<EOI
 uci add firewall defaults > /dev/null
+uci set firewall.@defaults[-1].disable_ipv6='1'
 uci set firewall.@defaults[-1].synflood_protect='1'
 uci set firewall.@defaults[-1].input='ACCEPT'
 uci set firewall.@defaults[-1].output='ACCEPT'
