@@ -3,7 +3,7 @@
 if [[ `source get-redacted-count.sh` != 0 ]]; then
     if [ ! -f ".passwords" ]; then
         echo "passwords redacted and nothing to restore them from"
-        sleep 5
+        sleep 3
         exit 1
     else
         source $(pwd)/restore-passwords.sh
