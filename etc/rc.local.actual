@@ -5,7 +5,7 @@
 echo "begin /etc/rc.local.actual"
 echo ""
 
-DRY_RUN=0
+DRY_RUN=1 # cant be fucking up the internet while people are working
 BUILD_DEV=0
 BUILD_GUEST=0
 
@@ -285,7 +285,7 @@ cmd=`cat <<EOI
 uci add dhcp dnsmasq > /dev/null
 uci set dhcp.@dnsmasq[-1].authoritative='1'
 uci set dhcp.@dnsmasq[-1].boguspriv='1'
-uci set dhcp.@dnsmasq[-1].dnssec='1'
+# uci set dhcp.@dnsmasq[-1].dnssec='1' # for now while i unfuck the router
 uci set dhcp.@dnsmasq[-1].domain='lan'
 uci set dhcp.@dnsmasq[-1].domainneeded='1'
 uci set dhcp.@dnsmasq[-1].ednspacket_max='1232'

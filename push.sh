@@ -10,4 +10,13 @@ if [[ `source get-redacted-count.sh` != 0 ]]; then
     fi
 fi
 
+for i in `ls etc`; do
+    sed -i 's/\r//' etc/"${i/\*/}" # replace CRLF with LF
+done
+
 scp -r etc/* root@192.168.1.1:/etc/
+
+###########################################################################################
+
+# find files with CRLF line endings
+# grep -rIl -m 1 $'\r' etc/
