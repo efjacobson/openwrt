@@ -1,3 +1,3 @@
 #!/bin/sh
 
-echo `cat etc/rc.local.actual | grep -c "key='redacted'"`
+echo `cat etc/rc.local.actual.sh | grep -c "key='redacted'"`

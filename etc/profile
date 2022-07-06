@@ -5,8 +5,8 @@
 [ -n "$FAILSAFE" ] && cat /etc/banner.failsafe
 
 fgrep -sq '/ overlay ro,' /proc/mounts && {
-	echo 'Your JFFS2-partition seems full and overlayfs is mounted read-only.'
-	echo 'Please try to remove files from /overlay/upper/... and reboot!'
+        echo 'Your JFFS2-partition seems full and overlayfs is mounted read-only.'
+        echo 'Please try to remove files from /overlay/upper/... and reboot!'
 }
 
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
@@ -15,9 +15,9 @@ export HOME=${HOME:-/root}
 export PS1='\u@\h:\w\$ '
 
 case "$TERM" in
-	xterm*|rxvt*)
-		export PS1='\[\e]0;\u@\h: \w\a\]'$PS1
-		;;
+        xterm*|rxvt*)
+                export PS1='\[\e]0;\u@\h: \w\a\]'$PS1
+                ;;
 esac
 
 [ -x /bin/more ] || alias more=less
@@ -33,10 +33,10 @@ alias restartservices='wifi reload && /etc/init.d/network restart && /etc/init.d
 [ -x /usr/bin/ldd ] || ldd() { LD_TRACE_LOADED_OBJECTS=1 $*; }
 
 [ -n "$FAILSAFE" ] || {
-	for FILE in /etc/profile.d/*.sh; do
-		[ -e "$FILE" ] && . "$FILE"
-	done
-	unset FILE
+        for FILE in /etc/profile.d/*.sh; do
+                [ -e "$FILE" ] && . "$FILE"
+        done
+        unset FILE
 }
 
 if ( grep -qs '^root::' /etc/shadow && \
@@ -52,10 +52,10 @@ EOF
 fi
 
 service() {
-	[ -f "/etc/init.d/$1" ] || {
-		echo "service "'"'"$1"'"'" not found, the following services are available:"
-		ls "/etc/init.d"
-		return 1
-	}
-	/etc/init.d/$@
+        [ -f "/etc/init.d/$1" ] || {
+                echo "service "'"'"$1"'"'" not found, the following services are available:"
+                ls "/etc/init.d"
+                return 1
+        }
+        /etc/init.d/$@
 }

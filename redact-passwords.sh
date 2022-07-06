@@ -12,7 +12,7 @@ touch .passwords
 [ -f .tmp ] && rm .tmp
 touch .tmp
 
-KEYS=`cat etc/rc.local.actual | grep "\.key='"`
+KEYS=`cat etc/rc.local.actual.sh | grep "\.key='"`
 echo "$KEYS" > .tmp
 
 comment_start="# "
@@ -29,5 +29,5 @@ rm .tmp
 while IFS= read -r line; do
   in="$line"
   arr_in=(${in//=/ })
-  sed -i "s|key=${arr_in[1]}|key='redacted'|g" etc/rc.local.actual
+  sed -i "s|key=${arr_in[1]}|key='redacted'|g" etc/rc.local.actual.sh
 done < .passwords

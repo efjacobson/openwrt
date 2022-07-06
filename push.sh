@@ -10,11 +10,18 @@ if [[ `source get-redacted-count.sh` != 0 ]]; then
     fi
 fi
 
-for i in `ls etc`; do
-    sed -i 's/\r//' etc/"${i/\*/}" # replace CRLF with LF
+[ -d .tmp ] && rm  -r .tmp
+cp -r etc .tmp
+mv .tmp/rc.local.sh .tmp/rc.local
+mv .tmp/rc.local.actual.sh .tmp/rc.local.actual
+
+for i in `ls .tmp`; do
+    sed -i 's/\r//' .tmp/"${i/\*/}" # replace CRLF with LF
 done
 
-scp -r etc/* root@192.168.1.1:/etc/
+chmod 644 .tmp/profile
+scp -r .tmp/* root@192.168.1.1:/etc/
+rm  -r .tmp
 
 source $(pwd)/redact-passwords.sh
 

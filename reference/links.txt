@@ -1,0 +1,2 @@
+https://docs.openwrt.melmac.net/vpn-policy-routing/
+https://kiljan.org/2021/12/14/vpn-as-wan-for-guest-network-on-openwrt-2021-edition/
