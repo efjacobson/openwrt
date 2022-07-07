@@ -11,16 +11,23 @@ if [[ `source get-redacted-count.sh` != 0 ]]; then
 fi
 
 [ -d .tmp ] && rm  -r .tmp
-cp -r etc .tmp
-mv .tmp/rc.local.sh .tmp/rc.local
-mv .tmp/rc.local.actual.sh .tmp/rc.local.actual
+mkdir .tmp
+cp -r lib .tmp/lib
+cp -r etc .tmp/etc
+mv .tmp/etc/rc.local.sh .tmp/etc/rc.local
+mv .tmp/etc/rc.local.actual.sh .tmp/etc/rc.local.actual
 
-for i in `ls .tmp`; do
-    sed -i 's/\r//' .tmp/"${i/\*/}" # replace CRLF with LF
+for i in `find .tmp -not -type d`; do
+  sed -i 's/\r//' "$i" # replace CRLF with LF
 done
 
-chmod 644 .tmp/profile
-scp -r .tmp/* root@192.168.1.1:/etc/
+chmod 644 .tmp/lib/netifd/netifd-wireless.sh
+chmod 644 .tmp/etc/profile
+chmod 644 .tmp/etc/hotplug.d/iface/99-vpn
+chmod +x .tmp/etc/openvpn/cg/routes-vpn.sh
+
+scp -r .tmp/* root@192.168.1.1:/
+
 rm  -r .tmp
 
 source $(pwd)/redact-passwords.sh

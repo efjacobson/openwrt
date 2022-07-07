@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+
+if=vpn
+
+dev=$DEVICE
+table=$INTERFACE
+
+if2dev() {
+  dev=$(uci get network.$1.ifname)
+  [ $(echo $dev | wc -w) -gt 1 ] && dev=br-$1
+  echo $dev
+}
+
+if [ "$INTERFACE" == "$if" ]; then
+  if [ "$ACTION" == "ifup" ]; then
+    ip rule add iif $dev lookup $table
+  elif [ "$ACTION" == "ifdown" ]; then
+    # Workaround for missing $DEVICE when interface is going down
+    dev=$(if2dev $if)
+    ip rule del iif $dev lookup $table
+  fi
+fi

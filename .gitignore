@@ -1,2 +1,4 @@
 .passwords
 .tmp
+*.key
+*.auth
