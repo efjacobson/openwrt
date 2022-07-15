@@ -13,8 +13,11 @@
 #   - https://github.com/openwrt/openwrt/blob/openwrt-21.02/package/network/services/odhcpd/files/odhcpd.defaults#L49-L50
 #   - https://datatracker.ietf.org/doc/html/rfc4861#section-4.2
 # todo: name interfaces after their mac addresses https://openwrt.org/docs/guide-user/base-system/hotplug#rename_interfaces_by_mac_address
-# todo: see about using cg dns
+# todo: see about using vpn dns
 # todo: save existing config and if after all this jazz it is unchanged, dont need to reboot
+# todo: see if swapping the vlan the pc is connected to will put the pc on vpn connection
+# todo: put etc and lib in a root dir
+# todo: https support
 
 # todo: figure out the logic they use to auto apply the phy path. syslog says:
 # Wed Jul  6 08:24:03 2022 daemon.notice netifd: radio1 (1567): WARNING: Variable 'data' does not exist or is not an array/object
@@ -53,8 +56,9 @@ install_packages() {
 
 install_packages
 
-is_dry_run=0
+dry_run=0
 build_guest=0
+build_vpn=0
 
 ip_third_octet=1
 
@@ -62,21 +66,29 @@ for opt in "$@"
   do
   case ${opt} in
     --dry-run)
-      is_dry_run=1
+      dry_run=1
     ;;
     --build-guest)
       build_guest=1
     ;;
+    --build-vpn)
+      build_vpn=1
+    ;;
   esac
 done
 
-if [[ "$is_dry_run" == 1 ]]; then
+if [[ "$dry_run" == 1 ]]; then
   echo "dry run"
   echo ""
 fi
 
 if [[ "$build_guest" == 1 ]]; then
   echo "with guest build"
+  echo ""
+fi
+
+if [[ "$build_vpn" == 1 ]]; then
+  echo "with vpn build"
   echo ""
 fi
 
@@ -130,9 +142,9 @@ clear_section() {
       if [[ "$cleared" != *"$item"* ]]; then
         uci -q delete "$item"
         cleared="$item|$cleared"
-        sleep 1
       fi
     done
+    sleep 1
     results=`uci -X show $section`
   done
 
@@ -172,7 +184,7 @@ end() {
   uci changes
   echo ""
 
-  if [[ "$is_dry_run" == 1 ]]; then
+  if [[ "$dry_run" == 1 ]]; then
     echo "dry run"
   else
     uci commit
@@ -187,6 +199,11 @@ end() {
 
   if [[ "$build_guest" == 1 ]]; then
     echo "with guest build"
+    echo ""
+  fi
+
+  if [[ "$build_vpn" == 1 ]]; then
+    echo "with vpn build"
     echo ""
   fi
 
@@ -208,7 +225,7 @@ radio_1_path="${radio_1_path/\/ieee80211\/phy1/}"
 cmd=`cat <<EOI
 uci set wireless.radio0=wifi-device
 uci set wireless.radio0.cell_density='0'
-uci set wireless.radio0.channel='36'
+uci set wireless.radio0.channel='auto'
 uci set wireless.radio0.country='US'
 uci set wireless.radio0.htmode='VHT80'
 uci set wireless.radio0.hwmode='11a'
@@ -220,7 +237,7 @@ log_execute "$cmd"
 cmd=`cat <<EOI
 uci set wireless.radio1=wifi-device
 uci set wireless.radio1.cell_density='0'
-uci set wireless.radio1.channel='11'
+uci set wireless.radio1.channel='auto'
 uci set wireless.radio1.country='US'
 uci set wireless.radio1.htmode='HT20'
 uci set wireless.radio1.hwmode='11g'
@@ -302,12 +319,13 @@ EOI`
 log_execute "$cmd"
 
 cmd=`cat <<EOI
-uci set network.wan=interface
-uci set network.wan.device='eth0.2'
-uci set network.wan.peerdns='0'
-uci set network.wan.proto='dhcp'
-uci set network.wan.type='bridge'
-add_list_dns "wan"
+uci add network device > /dev/null
+# uci set network.@device[-1].name='eth1.1'
+uci set network.@device[-1].name='eth1.1'
+uci set network.@device[-1].type='8021q'
+uci set network.@device[-1].ifname='eth1'
+uci set network.@device[-1].vid='1'
+uci set network.@device[-1].ipv6='0'
 EOI`
 log_execute "$cmd"
 
@@ -323,64 +341,22 @@ EOI`
 log_execute "$cmd"
 
 cmd=`cat <<EOI
+uci set network.wan=interface
+uci set network.wan.device='eth0.2'
+uci set network.wan.peerdns='0'
+uci set network.wan.proto='dhcp'
+uci set network.wan.type='bridge'
+add_list_dns "wan"
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
 uci add network device > /dev/null
 uci set network.@device[-1].name='eth0.2'
 uci set network.@device[-1].ifname='eth0'
 uci set network.@device[-1].ipv6='0'
 uci set network.@device[-1].type='8021q'
 uci set network.@device[-1].vid='2'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set wireless.vpn_radio1=wifi-iface
-uci set wireless.vpn_radio1.device='radio1'
-uci set wireless.vpn_radio1.encryption='psk2'
-uci set wireless.vpn_radio1.key='redacted'
-uci set wireless.vpn_radio1.mode='ap'
-uci set wireless.vpn_radio1.ssid='openwrt-2.4-vpn'
-
-uci set wireless.vpn_radio1.network='vpn'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add network device > /dev/null
-uci set network.@device[-1].name='bridge-vpn'
-uci set network.@device[-1].ipv6='0'
-uci set network.@device[-1].type='bridge'
-uci add_list network.@device[-1].ports='eth1.3'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set network.vpn=interface
-uci set network.vpn.device='bridge-vpn'
-uci set network.vpn.type='bridge'
-uci set network.vpn.ipaddr='192.168.3.1'
-uci set network.vpn.netmask='255.255.255.0'
-uci set network.vpn.proto='static'
-uci set network.vpn.delegate='0'
-
-add_list_dns "vpn"
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set dhcp.vpn=dhcp
-uci set dhcp.vpn.interface='vpn'
-uci set dhcp.vpn.start='100'
-uci set dhcp.vpn.limit='150'
-uci set dhcp.vpn.leasetime='12h'
-uci add_list dhcp.vpn.dhcp_option='6,1.1.1.1,1.0.0.1,8.8.8.8,8.8.4.4'
-uci add_list dhcp.vpn.ra_flags='none'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add network device > /dev/null
-uci set network.@device[-1].name='eth1.3'
-uci set network.@device[-1].ipv6='0'
 EOI`
 log_execute "$cmd"
 
@@ -448,89 +424,6 @@ log_execute "$cmd"
 #uci set dhcp.odhcpd.logLevel='4'
 #EOI`
 #log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set openvpn.sample_server=openvpn
-uci set openvpn.sample_server.port='1194'
-uci set openvpn.sample_server.proto='udp'
-uci set openvpn.sample_server.dev='tun'
-uci set openvpn.sample_server.ca='/etc/openvpn/ca.crt'
-uci set openvpn.sample_server.cert='/etc/openvpn/server.crt'
-uci set openvpn.sample_server.key='/etc/openvpn/server.key'
-uci set openvpn.sample_server.dh='/etc/openvpn/dh2048.pem'
-uci set openvpn.sample_server.server='10.8.0.0 255.255.255.0'
-uci set openvpn.sample_server.ifconfig_pool_persist='/tmp/ipp.txt'
-uci set openvpn.sample_server.keepalive='10 120'
-uci set openvpn.sample_server.persist_key='1'
-uci set openvpn.sample_server.persist_tun='1'
-uci set openvpn.sample_server.user='nobody'
-uci set openvpn.sample_server.status='/tmp/openvpn-status.log'
-uci set openvpn.sample_server.verb='3'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set openvpn.sample_client=openvpn
-uci set openvpn.sample_client.client='1'
-uci set openvpn.sample_client.dev='tun'
-uci set openvpn.sample_client.proto='udp'
-uci set openvpn.sample_client.resolv_retry='infinite'
-uci set openvpn.sample_client.nobind='1'
-uci set openvpn.sample_client.persist_key='1'
-uci set openvpn.sample_client.persist_tun='1'
-uci set openvpn.sample_client.user='nobody'
-uci set openvpn.sample_client.ca='/etc/openvpn/ca.crt'
-uci set openvpn.sample_client.cert='/etc/openvpn/client.crt'
-uci set openvpn.sample_client.key='/etc/openvpn/client.key'
-uci set openvpn.sample_client.verb='3'
-
-uci add_list openvpn.sample_client.remote='my_server_1 1194'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set openvpn.cg=openvpn
-uci set openvpn.cg.config='/etc/openvpn/cg/cg.ovpn'
-uci set openvpn.cg.enabled='1'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci set network.wan_vpn=interface
-uci set network.wan_vpn.device='tun0'
-uci set network.wan_vpn.proto='none'
-uci set network.wan_vpn.delegate='0'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add firewall zone > /dev/null
-uci set firewall.@zone[-1].name='wan_vpn'
-uci set firewall.@zone[-1].input='REJECT'
-uci set firewall.@zone[-1].output='ACCEPT'
-uci set firewall.@zone[-1].forward='REJECT'
-uci set firewall.@zone[-1].masq='1'
-uci set firewall.@zone[-1].mtu_fix='1'
-uci add_list firewall.@zone[-1].network='wan_vpn'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add firewall zone > /dev/null
-uci set firewall.@zone[-1].name='vpn'
-uci set firewall.@zone[-1].input='REJECT'
-uci set firewall.@zone[-1].output='ACCEPT'
-uci set firewall.@zone[-1].forward='REJECT'
-uci add_list firewall.@zone[-1].network='vpn'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add firewall forwarding > /dev/null
-uci set firewall.@forwarding[-1].src='vpn'
-uci set firewall.@forwarding[-1].dest='wan_vpn'
-EOI`
-log_execute "$cmd"
 
 ###########################################################################################
 
@@ -712,6 +605,227 @@ log_execute "$cmd"
 
 ###########################################################################################
 
+if [ "$build_guest" == 0 ] && [ "$build_vpn" == 0 ]; then
+  end
+  exit 0
+fi
+
+cmd=`cat <<EOI
+uci add network switch_vlan > /dev/null
+uci set network.@switch_vlan[-1].device='switch0'
+uci set network.@switch_vlan[-1].vlan='3'
+uci set network.@switch_vlan[-1].ports='6t 4'
+uci set network.@switch_vlan[-1].vid='3'
+uci set network.@switch_vlan[-1].description='VPN'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add network device > /dev/null
+uci set network.@device[-1].name='eth1.3'
+uci set network.@device[-1].ipv6='0'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add network device > /dev/null
+uci set network.@device[-1].name='bridge-vpn'
+uci set network.@device[-1].ipv6='0'
+uci set network.@device[-1].type='bridge'
+uci add_list network.@device[-1].ports='eth1.3'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set network.vpn=interface
+uci set network.vpn.device='bridge-vpn'
+uci set network.vpn.type='bridge'
+uci set network.vpn.ipaddr='192.168.3.1'
+uci set network.vpn.netmask='255.255.255.0'
+uci set network.vpn.proto='static'
+uci set network.vpn.delegate='0'
+
+add_list_dns "vpn"
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set wireless.vpn_radio0=wifi-iface
+uci set wireless.vpn_radio0.device='radio0'
+uci set wireless.vpn_radio0.encryption='psk2'
+uci set wireless.vpn_radio0.key='redacted'
+uci set wireless.vpn_radio0.mode='ap'
+uci set wireless.vpn_radio0.ssid='openwrt-5.0-vpn'
+uci set wireless.vpn_radio0.network='vpn'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add network device > /dev/null
+uci set network.@device[-1].name='wlan0-$(get_next_device_count "wlan0")'
+uci set network.@device[-1].ipv6='0'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set wireless.vpn_radio1=wifi-iface
+uci set wireless.vpn_radio1.device='radio1'
+uci set wireless.vpn_radio1.encryption='psk2'
+uci set wireless.vpn_radio1.key='redacted'
+uci set wireless.vpn_radio1.mode='ap'
+uci set wireless.vpn_radio1.ssid='openwrt-2.4-vpn'
+uci set wireless.vpn_radio1.network='vpn'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add network device > /dev/null
+uci set network.@device[-1].name='wlan1-$(get_next_device_count "wlan1")'
+uci set network.@device[-1].ipv6='0'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set dhcp.vpn=dhcp
+uci set dhcp.vpn.interface='vpn'
+uci set dhcp.vpn.start='100'
+uci set dhcp.vpn.limit='150'
+uci set dhcp.vpn.leasetime='12h'
+uci add_list dhcp.vpn.dhcp_option='6,1.1.1.1,1.0.0.1,8.8.8.8,8.8.4.4' # seems fishy
+uci add_list dhcp.vpn.ra_flags='none'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set openvpn.sample_server=openvpn
+uci set openvpn.sample_server.port='1194'
+uci set openvpn.sample_server.proto='udp'
+uci set openvpn.sample_server.dev='tun'
+uci set openvpn.sample_server.ca='/etc/openvpn/ca.crt'
+uci set openvpn.sample_server.cert='/etc/openvpn/server.crt'
+uci set openvpn.sample_server.key='/etc/openvpn/server.key'
+uci set openvpn.sample_server.dh='/etc/openvpn/dh2048.pem'
+uci set openvpn.sample_server.server='10.8.0.0 255.255.255.0'
+uci set openvpn.sample_server.ifconfig_pool_persist='/tmp/ipp.txt'
+uci set openvpn.sample_server.keepalive='10 120'
+uci set openvpn.sample_server.persist_key='1'
+uci set openvpn.sample_server.persist_tun='1'
+uci set openvpn.sample_server.user='nobody'
+uci set openvpn.sample_server.status='/tmp/openvpn-status.log'
+uci set openvpn.sample_server.verb='3'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set openvpn.sample_client=openvpn
+uci set openvpn.sample_client.client='1'
+uci set openvpn.sample_client.dev='tun'
+uci set openvpn.sample_client.proto='udp'
+uci set openvpn.sample_client.resolv_retry='infinite'
+uci set openvpn.sample_client.nobind='1'
+uci set openvpn.sample_client.persist_key='1'
+uci set openvpn.sample_client.persist_tun='1'
+uci set openvpn.sample_client.user='nobody'
+uci set openvpn.sample_client.ca='/etc/openvpn/ca.crt'
+uci set openvpn.sample_client.cert='/etc/openvpn/client.crt'
+uci set openvpn.sample_client.key='/etc/openvpn/client.key'
+uci set openvpn.sample_client.verb='3'
+
+uci add_list openvpn.sample_client.remote='my_server_1 1194'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set openvpn.vpn_0=openvpn
+uci set openvpn.vpn_0.config='/etc/openvpn/vpn_0/vpn_0.ovpn'
+uci set openvpn.vpn_0.enabled='1'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add network device > /dev/null
+uci set network.@device[-1].name='tun0'
+uci set network.@device[-1].ipv6='0'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci set network.wan_vpn=interface
+uci set network.wan_vpn.device='tun0'
+uci set network.wan_vpn.proto='none'
+uci set network.wan_vpn.delegate='0'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall zone > /dev/null
+uci set firewall.@zone[-1].name='wan_vpn'
+uci set firewall.@zone[-1].input='REJECT'
+uci set firewall.@zone[-1].output='ACCEPT'
+uci set firewall.@zone[-1].forward='REJECT'
+uci set firewall.@zone[-1].masq='1'
+uci set firewall.@zone[-1].mtu_fix='1'
+uci add_list firewall.@zone[-1].network='wan_vpn'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall zone > /dev/null
+uci set firewall.@zone[-1].name='vpn'
+uci set firewall.@zone[-1].input='REJECT'
+uci set firewall.@zone[-1].output='ACCEPT'
+uci set firewall.@zone[-1].forward='REJECT'
+uci add_list firewall.@zone[-1].network='vpn'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall forwarding > /dev/null
+uci set firewall.@forwarding[-1].src='vpn'
+uci set firewall.@forwarding[-1].dest='wan_vpn'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall rule > /dev/null
+uci set firewall.@rule[-1].name='Allow-vpn-Input-DHCPv4'
+uci set firewall.@rule[-1].family='ipv4'
+uci set firewall.@rule[-1].src='vpn'
+uci set firewall.@rule[-1].src_port='68'
+uci set firewall.@rule[-1].target='ACCEPT'
+uci set firewall.@rule[-1].dest_port='67'
+
+uci add_list firewall.@rule[-1].proto='udp'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall rule > /dev/null
+uci set firewall.@rule[-1].name='vpn DNS'
+uci set firewall.@rule[-1].dest_port='53'
+uci set firewall.@rule[-1].family='ipv4'
+uci set firewall.@rule[-1].src='vpn'
+uci set firewall.@rule[-1].target='ACCEPT'
+
+uci add_list firewall.@rule[-1].proto='tcp'
+uci add_list firewall.@rule[-1].proto='udp'
+EOI`
+log_execute "$cmd"
+
+cmd=`cat <<EOI
+uci add firewall rule > /dev/null
+uci set firewall.@rule[-1].name='vpn DHCP'
+uci set firewall.@rule[-1].dest_port='67'
+uci set firewall.@rule[-1].family='ipv4'
+uci set firewall.@rule[-1].src='vpn'
+uci set firewall.@rule[-1].target='ACCEPT'
+
+uci add_list firewall.@rule[-1].proto='udp'
+EOI`
+log_execute "$cmd"
+
+###########################################################################################
+
 if [[ "$build_guest" == 0 ]]; then
   end
   exit 0
@@ -779,27 +893,6 @@ EOI`
 log_execute "$cmd"
 
 ip_third_octet=$((ip_third_octet+1))
-
-cmd=`cat <<EOI
-uci add network switch_vlan > /dev/null
-uci set network.@switch_vlan[-1].device='switch0'
-uci set network.@switch_vlan[-1].vlan='3'
-uci set network.@switch_vlan[-1].ports='6t 4'
-uci set network.@switch_vlan[-1].vid='3'
-uci set network.@switch_vlan[-1].description='vpn'
-EOI`
-log_execute "$cmd"
-
-cmd=`cat <<EOI
-uci add network device > /dev/null
-# uci set network.@device[-1].name='eth1.1'
-uci set network.@device[-1].name='eth1.1'
-uci set network.@device[-1].type='8021q'
-uci set network.@device[-1].ifname='eth1'
-uci set network.@device[-1].vid='1'
-uci set network.@device[-1].ipv6='0'
-EOI`
-log_execute "$cmd"
 
 cmd=`cat <<EOI
 uci add network device > /dev/null

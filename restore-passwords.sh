@@ -1,13 +1,11 @@
 #!/bin/sh
 
-if [ ! -f ".passwords" ]; then
-  exit 1
-fi
+[ ! -f ".passwords" ] && return
 
 while read -r line; do
-  NAME=`echo "$line" | sed "s|='.*||"`
-  PATTERN=""$NAME"='redacted'"
-  sed -i "s|$PATTERN|$line|g" etc/rc.local.actual.sh
+  name=`echo "$line" | sed "s|='.*||"`
+  name=""$name"='redacted'"
+  sed -i "s|$name|$line|g" root/etc/rc.local.actual.sh
 done < .passwords
 
 rm .passwords

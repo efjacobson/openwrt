@@ -4,15 +4,17 @@
 
 staged=`git diff --staged --name-only`
 if [[ "$staged" != "" ]]; then
+	# todo: also need check for ovpn
 	committing_rc_local=0
 	for i in "$staged"; do
-		if [[ "$i" == *"etc/rc.local.actual.sh"* ]]; then
+		if [[ "$i" == *"root/etc/rc.local.actual.sh"* ]]; then
 			committing_rc_local=1
 		fi
 	done
 	if [ "$committing_rc_local" == 1 ] && [ `source $(pwd)/get-redacted-count.sh` != `source $(pwd)/get-key-count.sh` ]; then
-		source $(pwd)/redact-passwords.sh
-		git add etc/rc.local.actual.sh
+		source $(pwd)/redact.sh
+		# todo: re-adding here will be tricky since its in the file/dir name
+		git add root/etc/rc.local.actual.sh
 	fi
 fi
 

@@ -1,33 +1,17 @@
 #!/bin/sh
 
-if [[ `source $(pwd)/get-redacted-count.sh` != 0 ]]; then
-    echo "passwords already redacted"
-    sleep 3
-    exit 1
-fi
+[ -f ".passwords" ] && return
 
-[ -f .passwords ] && rm .passwords
-touch .passwords
-
-[ -f .tmp ] && rm .tmp
-touch .tmp
-
-KEYS=`cat etc/rc.local.actual.sh | grep "\.key='"`
-echo "$KEYS" > .tmp
-
-comment_start="# "
-while IFS= read -r line; do
+echo "$(cat root/etc/rc.local.actual.sh | grep "\.key='")" | while IFS= read -r line; do
   if [[ "$line" == *"wireless"* ]]; then
-    KEY="${line/uci set wireless./}"
-    KEY="${KEY/"$comment_start"/}"
-    echo "$KEY" >> .passwords
+    key="${line/uci set wireless./}"
+    key="${key/"# "/}" # for comments all janky like
+    echo "$key" >> .passwords
   fi
-done < .tmp
-
-rm .tmp
+done
 
 while IFS= read -r line; do
   in="$line"
   arr_in=(${in//=/ })
-  sed -i "s|key=${arr_in[1]}|key='redacted'|g" etc/rc.local.actual.sh
+  sed -i "s|key=${arr_in[1]}|key='redacted'|g" root/etc/rc.local.actual.sh
 done < .passwords

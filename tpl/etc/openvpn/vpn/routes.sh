@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-table=vpn
+table={{ tpl_table }}
 
 if [ "$script_type" == "route-up" ]; then
   ip route add default via $route_vpn_gateway dev $dev table $table proto static

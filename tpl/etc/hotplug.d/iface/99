@@ -3,7 +3,7 @@
 if=vpn
 
 dev=$DEVICE
-table=$INTERFACE
+table={{ tpl_table }}
 
 if2dev() {
   dev=$(uci get network.$1.ifname)

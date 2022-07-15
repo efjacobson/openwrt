@@ -1,4 +1,5 @@
-.passwords
-.tmp
+*.passwords
+*.tmp
+*.vpn_remotes
 *.key
 *.auth
